@@ -4,7 +4,8 @@ const accountModel = require("../models/accountModel");
 const path = require("path");
 var jwt = require("jsonwebtoken");
 
-router.post("/login", (req, res) => {
+// login api
+router.post("/login", (req, res, next) => {
   const username = req.body.username;
   const password = req.body.password;
   accountModel
@@ -14,75 +15,65 @@ router.post("/login", (req, res) => {
     })
     .then((data) => {
       if (data) {
-        var token = jwt.sign(
-          {
-            secret: data._id,
-          },
-          "0982"
-        );
+        const token = jwt.sign({ token: data._id }, "18082003");
         res.send({
+          msg: "Login successfully!",
           token: token,
-          status: "Đăng nhập thành công!",
         });
       } else {
-        res.send("Tai khoan hoan mat khau khong chinh xac!");
+        res.send("Tai khoan hoac mat khau khong chinh xac!");
       }
     })
     .catch(() => {
-      res.send("Loi sever!");
+      res.send("Co loi!");
     });
 });
-//-----------------------------------------------
+
+//check Login
 const checkLogin = (req, res, next) => {
+  const cookieValue = req.cookies.token;
+  if (!cookieValue) {
+    return res.status(400).send("Cookie not found");
+  }
   try {
-    var decoded = jwt.verify(req.cookies.token, "0982");
-    accountModel
-      .findOne({
-        _id: decoded.secret,
-      })
-      .then((data) => {
+    const decoded = jwt.verify(cookieValue, "18082003");
+    accountModel.findById(decoded.token).then((data) => {
+      if (data) {
         req.data = data.role;
         next();
-      })
-      .catch(() => {
-        console.log("Loi sever");
-      });
-  } catch {
-    res.send("Token khong ton tai");
+      } else {
+        res.send("Loi sever khong tìm thấy dữ liệu!!!");
+      }
+    });
+  } catch (err) {
+    res.status(500).send("Loi token");
   }
 };
-
+// student api
 router.get("/student", checkLogin, (req, res, next) => {
-  res.send("Student!!!");
+  if (req.data >= 1) {
+    res.send("Student da dang nhap thanh cong!");
+  } else {
+    res.send("Student khong co quyen truy cap");
+  }
 });
-router.get(
-  "/teacher",
-  checkLogin,
-  (req, res, next) => {
-    if (req.data >= 2) {
-      next();
-    } else {
-      res.send("Not permission!!!!!!");
-    }
-  },
-  (req, res, next) => {
-    res.send("Teacher!!!");
+
+router.get("/teacher", checkLogin, (req, res, next) => {
+  if (req.data >= 2) {
+    res.send("Teacher da dang nhap thanh cong!");
+  } else {
+    res.send(" khong co quyen truy cap");
   }
-);
-router.get(
-  "/manager",
-  checkLogin,
-  (req, res, next) => {
-    if (req.data >= 3) {
-      next();
-    } else {
-      res.send("Not permission!!!!!!");
-    }
-  },
-  (req, res, next) => {
-    res.send("Manager!!!");
+});
+
+router.get("/manager", checkLogin, (req, res, next) => {
+  if (req.data >= 3) {
+    res.send("Manager da dang nhap thanh cong!");
+  } else {
+    res.send(" khong co quyen truy cap");
   }
-);
+});
+
 //-----------------------------------------------------------------
 router.get("/login", (req, res) => {
   const filePath = path.join(__dirname, "../views/login.html");
